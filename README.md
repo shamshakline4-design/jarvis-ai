@@ -1,1 +1,79 @@
-# jarvis-ai
+# jarvis-ai!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07111f">
+  <title>JARVIS AI</title>
+  <script src="https://js.puter.com/v2/"></script>
+  <style>
+    :root{color-scheme:dark;--bg:#07111f;--panel:#101d30;--line:#233751;--cyan:#5ce1e6;--muted:#9eb0c7}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#142b42,var(--bg) 55%);color:#edf7ff;font:16px system-ui, sans-serif;min-height:100vh;display:flex;justify-content:center}
+    main{width:min(760px,100%);padding:22px 15px 28px;display:flex;flex-direction:column;min-height:100vh}
+    header{text-align:center;padding:24px 8px 18px} .orb{width:86px;height:86px;border:2px solid var(--cyan);border-radius:50%;margin:0 auto 12px;display:grid;place-items:center;box-shadow:0 0 28px #5ce1e655,inset 0 0 22px #5ce1e622;color:var(--cyan);font-size:30px}
+    h1{margin:0;font-size:30px;letter-spacing:5px}header p{color:var(--muted);margin:7px 0}
+    .status{font-size:13px;color:var(--cyan);margin-top:12px}
+    #chat{flex:1;min-height:260px;max-height:58vh;overflow:auto;background:#0b1727cc;border:1px solid var(--line);border-radius:18px;padding:14px}
+    .msg{padding:11px 13px;border-radius:14px;margin:9px 0;max-width:90%;white-space:pre-wrap;line-height:1.5;overflow-wrap:anywhere}
+    .bot{background:#142941;border:1px solid #24445e;margin-right:auto}.user{background:#16434b;margin-left:auto}
+    .controls{display:flex;gap:9px;margin-top:13px}.controls input{min-width:0;flex:1;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px;color:white;font-size:16px}
+    button{border:0;border-radius:13px;padding:12px 15px;background:var(--cyan);color:#04121b;font-weight:700;font-size:15px}
+    button:disabled{opacity:.55}.secondary{background:#20344c;color:#eaf6ff}
+    .actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}.hint{font-size:12px;color:var(--muted);line-height:1.5;margin:14px 3px}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="orb">J</div>
+    <h1>J.A.R.V.I.S</h1>
+    <p>Your personal AI assistant</p>
+    <div class="status" id="status">● Not connected</div>
+  </header>
+  <section id="chat" aria-live="polite">
+    <div class="msg bot">Hello! আমি JARVIS। Connect AI চাপ দিয়ে শুরু করো। তারপর আমাকে প্রশ্ন করতে পারো।</div>
+  </section>
+  <div class="controls">
+    <input id="prompt" placeholder="এখানে প্রশ্ন লেখো..." autocomplete="off">
+    <button id="send">Send</button>
+  </div>
+  <div class="actions">
+    <button class="secondary" id="connect">Connect AI</button>
+    <button class="secondary" id="mic">🎙 Voice</button>
+    <button class="secondary" id="clear">Clear chat</button>
+  </div>
+  <p class="hint">নোট: AI চালাতে ইন্টারনেট ও Puter account লাগতে পারে। Puter-এর free-use সীমা/শর্ত পরিবর্তন হতে পারে; এটি unlimited free service নয়। Voice input browser support-এর ওপর নির্ভর করে।</p>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const chat=$('chat'), status=$('status'), send=$('send'), promptBox=$('prompt');
+let connected=false;
+function add(text,who='bot'){const d=document.createElement('div');d.className='msg '+who;d.textContent=text;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d;}
+$('connect').onclick=async()=>{
+  if(!window.puter){add('Puter load হয়নি। ইন্টারনেট connection দেখে page reload করো।');return;}
+  status.textContent='● Connecting...';
+  try{await puter.auth.signIn();connected=true;status.textContent='● Connected';add('AI connected! এখন প্রশ্ন করো।');}
+  catch(e){status.textContent='● Not connected';add('Connect করা যায়নি: '+(e.message||e));}
+};
+async function ask(){
+  const q=promptBox.value.trim();if(!q)return;
+  if(!window.puter){add('AI service load হয়নি। ইন্টারনেট দেখে আবার চেষ্টা করো।');return;}
+  add(q,'user');promptBox.value='';send.disabled=true;send.textContent='...';
+  try{
+    const result=await puter.ai.chat(q);
+    const answer=typeof result==='string'?result:(result?.message?.content||result?.text||JSON.stringify(result));
+    add(answer);
+    if('speechSynthesis' in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(answer));}
+  }catch(e){add('উত্তর পাওয়া যায়নি: '+(e.message||e)+'\nConnect AI চাপ দিয়ে sign in করে আবার চেষ্টা করো।');}
+  finally{send.disabled=false;send.textContent='Send';}
+}
+send.onclick=ask;promptBox.addEventListener('keydown',e=>{if(e.key==='Enter')ask();});
+$('clear').onclick=()=>{chat.innerHTML='';add('Chat cleared. কী জানতে চাও?');};
+$('mic').onclick=()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){add('এই browser-এ voice input support নেই। Keyboard দিয়ে লিখো।');return;}
+  const rec=new SR();rec.lang='bn-BD';rec.onresult=e=>{promptBox.value=e.results[0][0].transcript;};rec.onerror=()=>add('Voice input কাজ করেনি। আবার চেষ্টা করো।');rec.start();
+};
+</script>
+</body>
+</html>
